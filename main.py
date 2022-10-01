@@ -8,21 +8,27 @@ from PIL import Image
 import tensorflow as tf
 
 
+IMAGE_SIZE = 224
+NUM_CLASSES = 10
+
+
 model = tf.lite.Interpreter("static/model.tflite")
 model.allocate_tensors()
 
 input_details = model.get_input_details()
 output_details = model.get_output_details()
 
-display_names = ['Building', 'Forest', 'Glacier', 'Mountain', 'Sea', 'Street']
+display_names = [
+    'Chicken Curry', 'Chicken Wing', 'Fried Rice', 'Grilled Salmon',
+    'Hamburger', 'Ice Cream', 'Pizza', 'Ramen', 'Steak', 'Sushi']
 
 def model_predict(imgs_arr):
   predictions = [0] * len(imgs_arr)
 
   for i, val in enumerate(predictions):
-    model.set_tensor(input_details[0]['index'], imgs_arr[i].reshape((1, 150, 150, 3)))
+    model.set_tensor(input_details[0]['index'], imgs_arr[i].reshape((1, IMAGE_SIZE, IMAGE_SIZE, 3)))
     model.invoke()
-    predictions[i] = model.get_tensor(output_details[0]['index']).reshape((6,))
+    predictions[i] = model.get_tensor(output_details[0]['index']).reshape((NUM_CLASSES,))
 
   prediction_probabilities = np.array(predictions)
   argmaxs = np.argmax(prediction_probabilities, axis=1)
@@ -35,7 +41,7 @@ app.mount("/static", StaticFiles(directory='static'), name="static")
 
 
 def resize(image):
-    return cv2.resize(image, (150, 150))
+    return cv2.resize(image, (IMAGE_SIZE, IMAGE_SIZE))
 
 @app.post("/uploadfiles/", response_class=HTMLResponse)
 async def create_upload_files(files: List[UploadFile] = File(...)):
@@ -88,7 +94,7 @@ async def main():
     content = head_html + """
     <marquee width='525' behaviour='alternate'>
         <h1 style="color:red;font-family:Arial">
-            Please Upload Your Scenes!
+            Please Upload Your Food Images!
         </h1>
     </marquee>
     <h3 style="font-family:Arial">
@@ -96,8 +102,11 @@ async def main():
     </h3>
     <br>
     """
-    original_paths = ['building.jpg', 'forest.jpg', 'glacier.jpg',
-                        'mountain.jpg', 'sea.jpg', 'street.jpg']
+    original_paths = [
+        'chicken_curry.jpg', 'chicken_wing.jpg', 'fried_rice.jpg',
+        'grilled_salmon.jpg', 'hamburger.jpg', 'ice_cream.jpg',
+        'pizza.jpg', 'ramen.jpg', 'steak.jpg', 'sushi.jpg']
+
     full_original_paths = ['static/original/' + x for x in original_paths]
 
     column_labels = []
@@ -130,9 +139,16 @@ def get_html_table(image_paths, names, column_labels):
         s += '<tr><th><h4 style="font-family:Arial">' \
              + column_labels[0] + '</h4></th><th><h4 style="font-family:Arial">'\
              + column_labels[1] + '</h4></th></tr>'
-    for name, image_path, in zip(names, image_paths):
-        s += '<tr><td><img height="80" src="/' + image_path + '" ></td>'
-        s += '<td style="text-align:center">' + name + '</td></tr>'
+        for name, image_path, in zip(names, image_paths):
+            s += '<tr><td><img height="80" src="/' + image_path + '" ></td>'
+            s += '<td style="text-align:center">' + name + '</td></tr>'
+    else:
+        for i in range(5):
+            s += '<tr><td><img height="80" src="/' + image_paths[i] + '" ></td>'
+            s += '<td style="text-align:center">' + names[i] + '</td>'
+            s += '<td><img height="80" src="/' + image_paths[i+5] + '" ></td>'
+            s += '<td style="text-align:center">' + names[i+5] + '</td></tr>'
+
     s += '</table>'
 
     return s
